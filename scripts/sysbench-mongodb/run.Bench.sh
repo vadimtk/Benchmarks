@@ -18,7 +18,7 @@ function StartMongo {
 
 echo "Starting mongod..."
 
-$MONGODIR/mongod --dbpath=$DATADIR --storageEngine=wiredTiger --logpath=$1/server.log &
+$MONGODIR/mongod --dbpath=$DATADIR --storageEngine=wiredTiger --wiredTigerCacheSizeGB=8 --logpath=$1/server.log &
 
 set +e
 
@@ -62,8 +62,11 @@ echo $RUN_NUMBER > .run_number
 
 runid="par640"
 
+PIDS=()
 iostat -dmx 10 >> $OUTDIR/iostat.$runid.res &
+PIDS+=($!) 
 dstat -t -v --nocolor 10 > $OUTDIR/dstat_plain.$runid.res  &
+PIDS+=($!) 
 
 cp $0 $OUTDIR
 
@@ -71,4 +74,14 @@ cp $0 $OUTDIR
 #./tpcc_start -h $SERVER -P $PORT -d tpcc$WH -u root -p "" -w $WH -c $par -r 10 -l $RT | tee -a $OUTDIR/tpcc.${runid}.$i.out 
 echo "Running..."
 bash run.simple.bash config.bash $OUTDIR | tee -a $OUTDIR/script.out.txt
+
+
+echo "Killing stats"
+for var in "${PIDS[@]}"
+do
+  kill -9 $var
+done
+
+echo "Stop mongod"
+$MONGODIR/mongo --eval "db.getSiblingDB('admin').shutdownServer()"
 
